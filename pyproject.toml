@@ -1,0 +1,60 @@
+[tool.poetry]
+name = "wilma"
+version = "0.1.0"
+description = "API client for Wilma school portal"
+authors = ["Frank Wickström <frwickst@gmail.com>"]
+readme = "README.md"
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.13"
+aiohttp = "^3.11.16"
+mashumaro = "^3.15"
+html2text = "^2025.4.15"
+beautifulsoup4 = "^4.13.4"
+playwright = {version = "^1.51.0", optional = true}
+
+[tool.poetry.extras]
+playwright = ["playwright"]
+
+[tool.poetry.scripts]
+wilma-install-deps = "wilma:install_playwright_deps"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.5"
+pytest-asyncio = "^0.26.0"
+pytest-cov = "^6.1.1"
+mypy = "^1.15.0"
+ruff = "^0.11.6"
+types-beautifulsoup4 = "^4.12.0.20250204"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+src = ["wilma"]
+lint.select = ["E", "F", "I"]
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+warn_unused_ignores = true
+warn_return_any = true
+warn_unreachable = true
+disallow_any_generics = true
+disallow_untyped_defs = true
+check_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = "wilma.tests.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "playwright.*"
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "function"
