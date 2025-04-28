@@ -6,8 +6,8 @@ import aiohttp
 import pytest
 from aiohttp import ClientResponse
 
-from wilma.client import AuthenticationError, WilmaClient, WilmaError
-from wilma.models import Message
+from wilhelmina.client import AuthenticationError, WilmaClient, WilmaError
+from wilhelmina.models import Message
 
 ################################
 # Basic Client Functionality
@@ -84,7 +84,7 @@ async def test_check_auth() -> None:
 
 
 @pytest.mark.asyncio
-@patch("wilma.client.aiohttp.ClientSession")
+@patch("wilhelmina.client.aiohttp.ClientSession")
 async def test_login_success(mock_session) -> None:
     """Test successful login."""
     # Create client with patched session
@@ -142,11 +142,11 @@ async def test_login_failure() -> None:
     """Test login failure."""
     client = WilmaClient("https://test.inschool.fi", debug=False)
 
-    # Mock the client session
-    client.session = AsyncMock()
+    # Create mock session
+    mock_session = MagicMock()  # Use MagicMock instead of AsyncMock for the session
 
     # Mock token request response
-    token_response = AsyncMock()
+    token_response = MagicMock()  # Use MagicMock instead of AsyncMock
     token_response.status = 200
 
     login_id_cookie = MagicMock()
@@ -160,20 +160,27 @@ async def test_login_failure() -> None:
     token_response.cookies = cookies
 
     # Mock login response with failure status
-    login_response = AsyncMock()
+    login_response = MagicMock()  # Use MagicMock instead of AsyncMock
     login_response.status = 401  # Unauthorized
 
     # Set up context manager returns
-    client.session.get.return_value.__aenter__.return_value = token_response
-    client.session.post.return_value.__aenter__.return_value = login_response
+    mock_get_ctx = MagicMock()
+    mock_get_ctx.__aenter__.return_value = token_response
+    mock_session.get.return_value = mock_get_ctx
 
-    # Call login and expect exception
-    with pytest.raises(AuthenticationError):
-        await client.login("testuser", "wrong_password")
+    mock_post_ctx = MagicMock()
+    mock_post_ctx.__aenter__.return_value = login_response
+    mock_session.post.return_value = mock_post_ctx
+
+    # Patch _ensure_session to return our mock session
+    with patch.object(client, "_ensure_session", AsyncMock(return_value=mock_session)):
+        # Call login and expect exception
+        with pytest.raises(AuthenticationError):
+            await client.login("testuser", "wrong_password")
 
 
 @pytest.mark.asyncio
-@patch("wilma.client.logger")
+@patch("wilhelmina.client.logger")
 async def test_login_edge_cases(mock_logger) -> None:
     """Test edge cases for the login method."""
     # Test login with token failure
@@ -280,7 +287,7 @@ async def test_debug_mode() -> None:
     WilmaClient("https://test.inschool.fi", debug=True)
 
     # Debug mode should set logger level to DEBUG
-    from wilma.client import logger
+    from wilhelmina.client import logger
 
     assert logger.level == 10  # DEBUG level
 
@@ -388,7 +395,7 @@ async def test_authenticated_request_http_error() -> None:
 
 
 @pytest.mark.asyncio
-@patch("wilma.client.WilmaClient._get_unread_message_ids")
+@patch("wilhelmina.client.WilmaClient._get_unread_message_ids")
 async def test_get_messages(mock_get_unread, authenticated_client, messages_data) -> None:
     """Test getting messages."""
     client = authenticated_client
@@ -422,7 +429,7 @@ async def test_get_messages(mock_get_unread, authenticated_client, messages_data
 
 
 @pytest.mark.asyncio
-@patch("wilma.client.WilmaClient._get_unread_message_ids")
+@patch("wilhelmina.client.WilmaClient._get_unread_message_ids")
 async def test_get_messages_with_filters(
     mock_get_unread, authenticated_client, messages_data, date_filters
 ) -> None:
@@ -472,8 +479,8 @@ async def test_get_messages_with_filters(
 
 
 @pytest.mark.asyncio
-@patch("wilma.client.WilmaClient._get_unread_message_ids")
-@patch("wilma.client.WilmaClient.get_message_content")
+@patch("wilhelmina.client.WilmaClient._get_unread_message_ids")
+@patch("wilhelmina.client.WilmaClient.get_message_content")
 async def test_get_messages_with_content(
     mock_get_message_content,
     mock_get_unread,
@@ -547,7 +554,7 @@ async def test_get_messages_with_content(
 
 
 @pytest.mark.asyncio
-@patch("wilma.client.WilmaClient._get_unread_message_ids")
+@patch("wilhelmina.client.WilmaClient._get_unread_message_ids")
 async def test_get_message_content(mock_get_unread, authenticated_client) -> None:
     """Test fetching message content."""
     client = authenticated_client
@@ -596,7 +603,7 @@ async def test_get_message_content(mock_get_unread, authenticated_client) -> Non
 
 
 @pytest.mark.asyncio
-@patch("wilma.client.WilmaClient._get_unread_message_ids")
+@patch("wilhelmina.client.WilmaClient._get_unread_message_ids")
 async def test_get_messages_with_invalid_content(mock_get_unread) -> None:
     """Test handling of invalid message content."""
     client = WilmaClient("https://test.inschool.fi")
@@ -646,7 +653,7 @@ async def test_message_attribute_transfer() -> None:
     """Test transfer of attributes from one message to another."""
     # This tests line 305 in client.py
 
-    from wilma.models import Message
+    from wilhelmina.models import Message
 
     # Create source message
     original_message = Message(

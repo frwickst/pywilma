@@ -4,8 +4,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from wilma.client import AuthenticationError, WilmaClient, WilmaError
-from wilma.models import Message
+from wilhelmina.client import AuthenticationError, WilmaClient, WilmaError
+from wilhelmina.models import Message
 
 
 @pytest.mark.asyncio
@@ -25,7 +25,7 @@ async def test_not_authenticated() -> None:
 
 
 @pytest.mark.asyncio
-@patch("wilma.client.WilmaClient._get_unread_message_ids")
+@patch("wilhelmina.client.WilmaClient._get_unread_message_ids")
 async def test_message_content_fetch_limit(mock_get_unread, authenticated_client) -> None:
     """Test the message content fetch limit."""
     client = authenticated_client
@@ -66,8 +66,8 @@ async def test_message_content_fetch_limit(mock_get_unread, authenticated_client
 
 
 @pytest.mark.asyncio
-@patch("wilma.client.importlib.util")
-@patch("wilma.client._has_playwright", False)
+@patch("wilhelmina.client.importlib.util")
+@patch("wilhelmina.client._has_playwright", False)
 async def test_get_unread_ids_no_playwright(mock_importlib, authenticated_client) -> None:
     """Test behavior when Playwright is not available."""
     client = authenticated_client

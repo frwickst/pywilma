@@ -1,6 +1,6 @@
 """Tests for utils."""
 
-from wilma.utils import html_to_markdown
+from wilhelmina.utils import html_to_markdown
 
 
 def test_html_to_markdown() -> None:

@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from wilma import __all__, install_playwright_deps
+from wilhelmina import __all__, install_playwright_deps
 
 
 def test_all_exports() -> None:
@@ -54,8 +54,8 @@ def test_install_playwright_deps(
             mock_run.return_value = MagicMock()
 
     with (
-        patch("wilma.__init__.importlib.util.find_spec", mock_find_spec),
-        patch("wilma.__init__.subprocess.run", mock_run),
+        patch("wilhelmina.__init__.importlib.util.find_spec", mock_find_spec),
+        patch("wilhelmina.__init__.subprocess.run", mock_run),
     ):
         result = install_playwright_deps(force=force, quiet=quiet)
 

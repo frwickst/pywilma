@@ -8,7 +8,7 @@ This project is an API client for the Wilma school platform. It allows authentic
 
 ## Project Structure
 
-- `wilma/` - Main package
+- `wilhelmina/` - Main package
   - `__init__.py` - Package exports
   - `client.py` - Main API client implementation
   - `models/` - Data models
@@ -28,13 +28,13 @@ Run these commands to verify your code before committing:
 
 ```bash
 # Format with ruff
-poetry run ruff format wilma
+poetry run ruff format wilhelmina
 
 # Lint with ruff
-poetry run ruff check wilma --fix
+poetry run ruff check wilhelmina --fix
 
 # Type check with mypy
-poetry run mypy wilma
+poetry run mypy wilhelmina
 
 # Run tests
 poetry run pytest

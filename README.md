@@ -1,6 +1,10 @@
-# Wilma API Client
+# Wilhelmina - Wilma API Client
 
 A Python API client for the Wilma school platform. This client allows you to authenticate, fetch messages, and view message contents from the Wilma platform.
+
+Why is this not called Wilma? The reason is simple, PyPi sees "Wilma" as a prohibited packages name. It
+is not taken on PyPi, it just is not allowed. Wilhelmina is the long/full version of the name Wilma which
+is the reason for the name.
 
 ## Wilma API Features
 
@@ -37,22 +41,22 @@ this library was to get quick access to the Wilma API through Python.
 
 ```bash
 # Basic installation
-pip install wilma
+pip install wilhelmina
 
 # (Optional) Installation with Playwright support (for unread message detection)
-pip install wilma[playwright]
+pip install wilhelmina[playwright]
 
 # Playwright browser will be installed automatically on import
 
 # Using Poetry
-poetry add wilma -E playwright
+poetry add wilhelmina -E playwright
 ```
 
 ## API Client Usage
 
 ```python
 import asyncio
-from wilma import WilmaClient
+from wilhelmina import WilmaClient
 
 async def main():
     # Initialize client with an optional existing aiohttp session
@@ -86,8 +90,8 @@ asyncio.run(main())
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/wilma.git
-cd wilma
+git clone https://github.com/frwickst/wilhelmina.git
+cd wilhelmina
 
 # Install development dependencies
 poetry install
@@ -103,23 +107,23 @@ poetry run playwright install chromium
 poetry run pytest
 
 # Run specific tests
-poetry run pytest wilma/tests/test_client.py
+poetry run pytest wilhelmina/tests/test_client.py
 
 # Run with coverage
-poetry run pytest --cov=wilma
+poetry run pytest --cov=wilhelmina
 ```
 
 ### Linting and Type Checking
 
 ```bash
 # Format with ruff
-poetry run ruff format wilma
+poetry run ruff format wilhelmina
 
 # Run ruff for linting
-poetry run ruff check wilma --fix
+poetry run ruff check wilhelmina --fix
 
 # Run mypy for type checking
-poetry run mypy wilma
+poetry run mypy wilhelmina
 ```
 
 ## License

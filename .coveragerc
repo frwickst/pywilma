@@ -1,6 +1,6 @@
 [run]
-source = wilma
-omit = wilma/tests/*
+source = wilhelmina
+omit = wilhelmina/tests/*
 
 [report]
 exclude_lines =

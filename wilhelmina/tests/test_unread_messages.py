@@ -4,12 +4,12 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from wilma.client import WilmaClient, WilmaError
+from wilhelmina.client import WilmaClient, WilmaError
 
 
 @pytest.mark.asyncio
-@patch("wilma.client._has_playwright", True)
-@patch("wilma.client.async_playwright")
+@patch("wilhelmina.client._has_playwright", True)
+@patch("wilhelmina.client.async_playwright")
 async def test_get_unread_message_ids(mock_playwright) -> None:
     """Test getting unread message IDs with Playwright."""
     # Initialize client
@@ -89,8 +89,8 @@ async def test_get_unread_message_ids(mock_playwright) -> None:
 
 
 @pytest.mark.asyncio
-@patch("wilma.client._has_playwright", True)
-@patch("wilma.client.async_playwright")
+@patch("wilhelmina.client._has_playwright", True)
+@patch("wilhelmina.client.async_playwright")
 async def test_get_unread_message_ids_failure(mock_playwright) -> None:
     """Test error handling in getting unread message IDs."""
     # Initialize client
@@ -124,7 +124,7 @@ async def test_get_unread_message_ids_failure(mock_playwright) -> None:
 
 
 @pytest.mark.asyncio
-@patch("wilma.client._has_playwright", False)
+@patch("wilhelmina.client._has_playwright", False)
 async def test_get_unread_message_ids_no_playwright() -> None:
     """Test behavior when Playwright is not available."""
     # Initialize client
@@ -138,8 +138,8 @@ async def test_get_unread_message_ids_no_playwright() -> None:
 
 
 @pytest.mark.asyncio
-@patch("wilma.client._has_playwright", True)
-@patch("wilma.client.async_playwright")
+@patch("wilhelmina.client._has_playwright", True)
+@patch("wilhelmina.client.async_playwright")
 async def test_get_unread_message_ids_invalid_values(mock_playwright) -> None:
     """Test handling of invalid message IDs."""
     # Initialize client

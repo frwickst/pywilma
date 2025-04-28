@@ -5,8 +5,8 @@ import logging
 import subprocess
 import sys
 
-from wilma.client import AuthenticationError, WilmaClient, WilmaError
-from wilma.models import Message, MessagesList, Sender
+from wilhelmina.client import AuthenticationError, WilmaClient, WilmaError
+from wilhelmina.models import Message, MessagesList, Sender
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +53,7 @@ def install_playwright_deps(force: bool = False, quiet: bool = False) -> bool:
         logger.info("Playwright dependencies installed successfully.")
         return True
     except (subprocess.SubprocessError, FileNotFoundError) as e:
-        logger.error(f"Failed to install Playwright dependencies: {e}")
+        logger.exception("Failed to install Playwright dependencies: %s", e)
         return False
 
 

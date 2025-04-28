@@ -7,7 +7,7 @@ from typing import Any, List, Optional
 from mashumaro import DataClassDictMixin
 from mashumaro.config import BaseConfig
 
-from wilma.utils import html_to_markdown
+from wilhelmina.utils import html_to_markdown
 
 
 @dataclass

@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from wilma.client import WilmaClient
+from wilhelmina.client import WilmaClient
 
 
 def pytest_configure(config):

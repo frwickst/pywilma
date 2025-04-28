@@ -4,7 +4,7 @@ from datetime import datetime
 
 import pytest
 
-from wilma.models import Message, MessagesList, Sender
+from wilhelmina.models import Message, MessagesList, Sender
 
 
 def test_sender_model() -> None:

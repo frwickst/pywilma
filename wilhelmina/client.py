@@ -10,7 +10,7 @@ import aiohttp
 from aiohttp import ClientResponse
 from bs4 import BeautifulSoup
 
-from wilma.models import Message
+from wilhelmina.models import Message
 
 # Allow for running without Playwright
 _has_playwright = importlib.util.find_spec("playwright") is not None
@@ -80,7 +80,7 @@ class WilmaClient:
     async def login(self, username: str, password: str) -> None:
         """Login to Wilma."""
         session = await self._ensure_session()
-        logger.debug(f"Logging in to {self.base_url} as {username}")
+        logger.debug("Logging in to %s as %s", self.base_url, username)
 
         # Get SESSIONID token
         async with session.get(f"{self.base_url}/token") as response:
@@ -92,7 +92,7 @@ class WilmaClient:
                 raise AuthenticationError("No login ID cookie found")
 
             session_id = login_id.value
-            logger.debug(f"Got session ID: {session_id}")
+            logger.debug("Got session ID: %s", session_id)
 
         # Perform login
         data = {
@@ -121,7 +121,7 @@ class WilmaClient:
                 raise AuthenticationError(f"Invalid Location header: {location}")
 
             self.user_id = "!" + location.split("!")[1].split("?")[0]
-            logger.debug(f"Logged in as {self.user_id}")
+            logger.debug("Logged in as %s", self.user_id)
 
     async def _get_unread_message_ids(self) -> Set[int]:
         """Get IDs of unread messages by parsing the HTML page with Playwright."""
@@ -179,7 +179,7 @@ class WilmaClient:
                         except (ValueError, AttributeError):
                             continue
 
-                logger.debug(f"Found {len(unread_ids)} unread messages")
+                logger.debug("Found %s unread messages", len(unread_ids))
             finally:
                 await browser.close()
 
@@ -193,18 +193,7 @@ class WilmaClient:
         params: dict[str, str | int | bool] | None = None,
         **kwargs: Any,
     ) -> aiohttp.ClientResponse:
-        """Make an authenticated request to the Wilma API.
-
-        Args:
-            url_template: URL template that may contain {user_id} placeholder
-            method: HTTP method (GET, POST, etc.)
-            data: Request data for POST requests
-            params: Query parameters
-            **kwargs: Additional arguments to pass to the request method
-
-        Returns:
-            ClientResponse object
-        """
+        """Make an authenticated request to the Wilma API."""
         self._check_auth()
         session = await self._ensure_session()
 
@@ -230,7 +219,7 @@ class WilmaClient:
         if data and method == "POST":
             request_kwargs["data"] = data
 
-        logger.debug(f"Making {method} request to {url}")
+        logger.debug("Making %s request to %s", method, url)
 
         response: ClientResponse = await getattr(session, method.lower())(url, **request_kwargs)
 
@@ -246,16 +235,7 @@ class WilmaClient:
         with_content: bool = False,
         no_message_content_fetch_limit: bool = False,
     ) -> list[Message]:
-        """Get messages list.
-
-        Args:
-            only_unread: If True, return only unread messages
-            afterIf provided, return only messages after this datetime
-            with_content: If True, fetch full message content for each message
-
-        Returns:
-            List of Message objects
-        """
+        """Get messages list."""
         # Get unread message IDs
         unread_message_ids = await self._get_unread_message_ids()
 
@@ -304,7 +284,7 @@ class WilmaClient:
                         if attr != "unread" and getattr(message, attr, None) is None:
                             setattr(message, attr, value)
                 except Exception as e:
-                    logger.warning(f"Failed to fetch content for message {message.id}: {e}")
+                    logger.warning("Failed to fetch content for message %s: %s", message.id, e)
 
         return messages
 
