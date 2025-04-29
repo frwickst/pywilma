@@ -47,6 +47,8 @@ class WilmaClient:
         self.debug = debug
         self.headless = headless
         self._owns_session = session is None
+        self.username = None
+        self.password = None
 
         if debug:
             logger.setLevel(logging.DEBUG)
@@ -77,8 +79,14 @@ class WilmaClient:
             logger.debug("Not authenticated")
             raise AuthenticationError("Not authenticated")
 
-    async def login(self, username: str, password: str) -> None:
+    async def login(self, username: str | None = None, password: str | None = None) -> None:
         """Login to Wilma."""
+        username = username or self.username
+        password = password or self.password
+
+        if not username or not password:
+            raise AuthenticationError("Username and password must be provided")
+
         session = await self._ensure_session()
         logger.debug("Logging in to %s as %s", self.base_url, username)
 
@@ -225,6 +233,11 @@ class WilmaClient:
 
         if response.status >= 400:
             raise WilmaError(f"Request failed with status {response.status}: {url}")
+
+        if "sessionexpired" in str(response.request_info.real_url):
+            logger.debug("Session expired, logging in again")
+            await self.login()
+            return await self._authenticated_request(url_template, method, data, params, **kwargs)
 
         return response
 
