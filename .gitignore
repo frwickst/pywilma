@@ -130,3 +130,6 @@ dmypy.json
 
 # IntelliJ Editors
 .idea
+
+# MacOS
+.DS_Store
