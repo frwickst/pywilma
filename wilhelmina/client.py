@@ -81,14 +81,14 @@ class WilmaClient:
 
     async def login(self, username: str | None = None, password: str | None = None) -> None:
         """Login to Wilma."""
-        username = username or self.username
-        password = password or self.password
+        self.username = username or self.username
+        self.password = password or self.password
 
         if not username or not password:
             raise AuthenticationError("Username and password must be provided")
 
         session = await self._ensure_session()
-        logger.debug("Logging in to %s as %s", self.base_url, username)
+        logger.debug("Logging in to %s as %s", self.base_url, self.username)
 
         # Get SESSIONID token
         async with session.get(f"{self.base_url}/token") as response:
@@ -104,8 +104,8 @@ class WilmaClient:
 
         # Perform login
         data = {
-            "Login": username,
-            "Password": password,
+            "Login": self.username,
+            "Password": self.password,
             "SESSIONID": session_id,
         }
 
