@@ -1,0 +1,4 @@
+packages = [
+  {include = "wilhelmina"},
+  {include = "wilhelmina/py.typed"},
+]
