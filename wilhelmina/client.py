@@ -199,6 +199,7 @@ class WilmaClient:
         method: str = "GET",
         data: dict[str, Any] | None = None,
         params: dict[str, str | int | bool] | None = None,
+        retry: bool = False,
         **kwargs: Any,
     ) -> aiohttp.ClientResponse:
         """Make an authenticated request to the Wilma API."""
@@ -231,13 +232,16 @@ class WilmaClient:
 
         response: ClientResponse = await getattr(session, method.lower())(url, **request_kwargs)
 
-        if response.status >= 400:
-            raise WilmaError(f"Request failed with status {response.status}: {url}")
-
-        if "sessionexpired" in str(response.request_info.real_url):
+        # Session expires after a while, and at times we get 403 errors, re-auth in these cases
+        # but just do it once, since if a re-auth does not work, then we most likely are locked
+        # our for a valid reason.
+        if not retry and ("sessionexpired" in str(response.request_info.real_url) or response.status == 403):
             logger.debug("Session expired, logging in again")
             await self.login()
-            return await self._authenticated_request(url_template, method, data, params, **kwargs)
+            return await self._authenticated_request(url_template, method, data, params, True, **kwargs)
+
+        if response.status >= 400:
+            raise WilmaError(f"Request failed with status {response.status}: {url}")
 
         return response
 
