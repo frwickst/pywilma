@@ -84,7 +84,7 @@ class WilmaClient:
         self.username = username or self.username
         self.password = password or self.password
 
-        if not username or not password:
+        if not self.username or not self.password:
             raise AuthenticationError("Username and password must be provided")
 
         session = await self._ensure_session()
