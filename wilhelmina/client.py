@@ -235,7 +235,10 @@ class WilmaClient:
         # Session expires after a while, and at times we get 403 errors, re-auth in these cases
         # but just do it once, since if a re-auth does not work, then we most likely are locked
         # our for a valid reason.
-        if not retry and ("sessionexpired" in str(response.request_info.real_url) or response.status == 403):
+        reauth_matches = ["sessionexpired", "invalidsession"]
+        realurl = str(response.request_info.real_url)
+
+        if not retry and any(match in realurl for match in reauth_matches) or response.status == 403:
             logger.debug("Session expired, logging in again")
             await self.login()
             return await self._authenticated_request(url_template, method, data, params, True, **kwargs)
