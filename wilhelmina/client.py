@@ -47,8 +47,8 @@ class WilmaClient:
         self.debug = debug
         self.headless = headless
         self._owns_session = session is None
-        self.username = None
-        self.password = None
+        self.username: str | None = None
+        self.password: str | None = None
 
         if debug:
             logger.setLevel(logging.DEBUG)
