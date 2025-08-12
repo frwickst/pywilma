@@ -47,8 +47,8 @@ class WilmaClient:
         self.debug = debug
         self.headless = headless
         self._owns_session = session is None
-        self.username = None
-        self.password = None
+        self.username: str | None = None
+        self.password: str | None = None
 
         if debug:
             logger.setLevel(logging.DEBUG)
@@ -302,10 +302,16 @@ class WilmaClient:
         reauth_matches = ["sessionexpired", "invalidsession"]
         realurl = str(response.request_info.real_url)
 
-        if not retry and any(match in realurl for match in reauth_matches) or response.status == 403:
+        if (
+            not retry
+            and any(match in realurl for match in reauth_matches)
+            or response.status == 403
+        ):
             logger.debug("Session expired, logging in again")
             await self.login()
-            return await self._authenticated_request(url_template, method, data, params, True, **kwargs)
+            return await self._authenticated_request(
+                url_template, method, data, params, True, **kwargs
+            )
 
         if response.status >= 400:
             raise WilmaError(f"Request failed with status {response.status}: {url}")
