@@ -451,13 +451,13 @@ async def test_login_checkcookie_style_user_id_extraction_patterns(mock_session)
         home_context = AsyncMock()
         home_context.__aenter__.return_value = home_resp
 
-        def get_side_effect(url, **kwargs):
+        def get_side_effect(url, token_ctx=token_context, checkcookie_ctx=checkcookie_context, home_ctx=home_context, **kwargs):
             if "/token" in url:
-                return token_context
+                return token_ctx
             elif "checkcookie" in url:
-                return checkcookie_context
+                return checkcookie_ctx
             else:
-                return home_context
+                return home_ctx
 
         mock_session_instance.get.side_effect = get_side_effect
         mock_session_instance.post.return_value = login_context
