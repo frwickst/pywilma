@@ -260,7 +260,8 @@ async def test_login_checkcookie_style_checkcookie_redirect(mock_session) -> Non
     # Set up home page response with user ID in content
     home_resp = AsyncMock()
     home_resp.status = 200
-    home_resp.text = AsyncMock(return_value='''
+    home_resp.text = AsyncMock(
+        return_value="""
         <html>
             <body>
                 <script>
@@ -269,21 +270,22 @@ async def test_login_checkcookie_style_checkcookie_redirect(mock_session) -> Non
                 </script>
             </body>
         </html>
-    ''')
+    """
+    )
 
     # Configure session mock
     mock_session_instance = mock_session.return_value
-    
+
     # Set up context managers for different requests
     token_context = AsyncMock()
     token_context.__aenter__.return_value = token_resp
-    
+
     login_context = AsyncMock()
     login_context.__aenter__.return_value = login_resp
-    
+
     checkcookie_context = AsyncMock()
     checkcookie_context.__aenter__.return_value = checkcookie_resp
-    
+
     home_context = AsyncMock()
     home_context.__aenter__.return_value = home_resp
 
@@ -345,34 +347,36 @@ async def test_login_checkcookie_style_no_redirect_from_checkcookie(mock_session
     # Set up home page response with user ID
     home_resp = AsyncMock()
     home_resp.status = 200
-    home_resp.text = AsyncMock(return_value='''
+    home_resp.text = AsyncMock(
+        return_value="""
         <html>
             <body>
                 <div id="user-info" data-user-id="!9876543">Welcome</div>
             </body>
         </html>
-    ''')
+    """
+    )
 
     # Configure session mock
     mock_session_instance = mock_session.return_value
-    
+
     # Set up context managers
     token_context = AsyncMock()
     token_context.__aenter__.return_value = token_resp
-    
+
     login_context = AsyncMock()
     login_context.__aenter__.return_value = login_resp
-    
+
     checkcookie_context = AsyncMock()
     checkcookie_context.__aenter__.return_value = checkcookie_resp
-    
+
     home_context = AsyncMock()
     home_context.__aenter__.return_value = home_resp
 
     def get_side_effect(url, **kwargs):
         if "/token" in url:
             return token_context
-        elif "checkcookie" in url and kwargs.get('allow_redirects') is False:
+        elif "checkcookie" in url and kwargs.get("allow_redirects") is False:
             return checkcookie_context
         else:  # home page (when checkcookie doesn't redirect)
             return home_context
@@ -397,7 +401,7 @@ async def test_login_checkcookie_style_user_id_extraction_patterns(mock_session)
     # Setup basic mocks
     login_id_cookie = MagicMock()
     login_id_cookie.value = "test_login_id"
-    
+
     token_resp = AsyncMock()
     token_resp.status = 200
     token_resp.cookies = MagicMock()
@@ -441,17 +445,23 @@ async def test_login_checkcookie_style_user_id_extraction_patterns(mock_session)
         # Set up context managers
         token_context = AsyncMock()
         token_context.__aenter__.return_value = token_resp
-        
+
         login_context = AsyncMock()
         login_context.__aenter__.return_value = login_resp
-        
+
         checkcookie_context = AsyncMock()
         checkcookie_context.__aenter__.return_value = checkcookie_resp
-        
+
         home_context = AsyncMock()
         home_context.__aenter__.return_value = home_resp
 
-        def get_side_effect(url, token_ctx=token_context, checkcookie_ctx=checkcookie_context, home_ctx=home_context, **kwargs):
+        def get_side_effect(
+            url,
+            token_ctx=token_context,
+            checkcookie_ctx=checkcookie_context,
+            home_ctx=home_context,
+            **kwargs,
+        ):
             if "/token" in url:
                 return token_ctx
             elif "checkcookie" in url:
@@ -478,7 +488,7 @@ async def test_login_checkcookie_style_extraction_failure(mock_session) -> None:
     # Setup mocks
     login_id_cookie = MagicMock()
     login_id_cookie.value = "test_login_id"
-    
+
     token_resp = AsyncMock()
     token_resp.status = 200
     token_resp.cookies = MagicMock()
@@ -500,20 +510,20 @@ async def test_login_checkcookie_style_extraction_failure(mock_session) -> None:
     # Home page without user ID pattern
     home_resp = AsyncMock()
     home_resp.status = 200
-    home_resp.text = AsyncMock(return_value='<html><body><h1>Welcome to Wilma</h1></body></html>')
+    home_resp.text = AsyncMock(return_value="<html><body><h1>Welcome to Wilma</h1></body></html>")
 
     mock_session_instance = mock_session.return_value
-    
+
     # Set up context managers
     token_context = AsyncMock()
     token_context.__aenter__.return_value = token_resp
-    
+
     login_context = AsyncMock()
     login_context.__aenter__.return_value = login_resp
-    
+
     checkcookie_context = AsyncMock()
     checkcookie_context.__aenter__.return_value = checkcookie_resp
-    
+
     home_context = AsyncMock()
     home_context.__aenter__.return_value = home_resp
 
