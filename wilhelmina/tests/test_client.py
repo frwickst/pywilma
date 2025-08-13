@@ -226,6 +226,324 @@ async def test_login_edge_cases(mock_logger) -> None:
 
 
 @pytest.mark.asyncio
+@patch("wilhelmina.client.aiohttp.ClientSession")
+async def test_login_checkcookie_style_checkcookie_redirect(mock_session) -> None:
+    """Test checkcookie style login with checkcookie redirect (no user ID in initial redirect)."""
+    client = WilmaClient("https://test.inschool.fi", debug=False)
+
+    # Login ID cookie
+    login_id_cookie = MagicMock()
+    login_id_cookie.value = "test_login_id"
+
+    # Set up token response mock
+    token_resp = AsyncMock()
+    token_resp.status = 200
+    token_resp.cookies = MagicMock()
+    token_resp.cookies.get = MagicMock(return_value=login_id_cookie)
+
+    # SID cookie
+    sid_cookie = MagicMock()
+    sid_cookie.value = "test_sid"
+
+    # Set up login response mock - checkcookie style (no user ID, just checkcookie)
+    login_resp = AsyncMock()
+    login_resp.status = 302
+    login_resp.cookies = MagicMock()
+    login_resp.cookies.get = MagicMock(return_value=sid_cookie)
+    login_resp.headers = {"Location": "https://test.inschool.fi/?checkcookie"}
+
+    # Set up checkcookie redirect response
+    checkcookie_resp = AsyncMock()
+    checkcookie_resp.status = 302
+    checkcookie_resp.headers = {"Location": "https://test.inschool.fi/"}
+
+    # Set up home page response with user ID in content
+    home_resp = AsyncMock()
+    home_resp.status = 200
+    home_resp.text = AsyncMock(
+        return_value="""
+        <html>
+            <body>
+                <script>
+                    var userUrl = "/!9876543/index";
+                    window.location = userUrl;
+                </script>
+            </body>
+        </html>
+    """
+    )
+
+    # Configure session mock
+    mock_session_instance = mock_session.return_value
+
+    # Set up context managers for different requests
+    token_context = AsyncMock()
+    token_context.__aenter__.return_value = token_resp
+
+    login_context = AsyncMock()
+    login_context.__aenter__.return_value = login_resp
+
+    checkcookie_context = AsyncMock()
+    checkcookie_context.__aenter__.return_value = checkcookie_resp
+
+    home_context = AsyncMock()
+    home_context.__aenter__.return_value = home_resp
+
+    # Configure get and post methods to return appropriate context managers
+    def get_side_effect(url, **kwargs):
+        if "/token" in url:
+            return token_context
+        elif "checkcookie" in url:
+            return checkcookie_context
+        else:  # home page
+            return home_context
+
+    mock_session_instance.get.side_effect = get_side_effect
+    mock_session_instance.post.return_value = login_context
+
+    # Call login
+    await client.login("testuser", "testpass")
+
+    # Verify client state - should have extracted user ID from home page
+    assert client.user_id == "!9876543"
+    assert client._sid == "test_sid"
+
+    # Verify the sequence of requests
+    assert mock_session_instance.get.call_count == 3  # token, checkcookie, home page
+    assert mock_session_instance.post.call_count == 1  # login
+
+
+@pytest.mark.asyncio
+@patch("wilhelmina.client.aiohttp.ClientSession")
+async def test_login_checkcookie_style_no_redirect_from_checkcookie(mock_session) -> None:
+    """Test checkcookie style login when checkcookie doesn't redirect (status 200)."""
+    client = WilmaClient("https://test.inschool.fi", debug=False)
+
+    # Login ID cookie
+    login_id_cookie = MagicMock()
+    login_id_cookie.value = "test_login_id"
+
+    # Set up token response mock
+    token_resp = AsyncMock()
+    token_resp.status = 200
+    token_resp.cookies = MagicMock()
+    token_resp.cookies.get = MagicMock(return_value=login_id_cookie)
+
+    # SID cookie
+    sid_cookie = MagicMock()
+    sid_cookie.value = "test_sid"
+
+    # Set up login response mock - checkcookie style
+    login_resp = AsyncMock()
+    login_resp.status = 302
+    login_resp.cookies = MagicMock()
+    login_resp.cookies.get = MagicMock(return_value=sid_cookie)
+    login_resp.headers = {"Location": "https://test.inschool.fi/?checkcookie"}
+
+    # Set up checkcookie response that doesn't redirect (status 200)
+    checkcookie_resp = AsyncMock()
+    checkcookie_resp.status = 200
+
+    # Set up home page response with user ID
+    home_resp = AsyncMock()
+    home_resp.status = 200
+    home_resp.text = AsyncMock(
+        return_value="""
+        <html>
+            <body>
+                <div id="user-info" data-user-id="!9876543">Welcome</div>
+            </body>
+        </html>
+    """
+    )
+
+    # Configure session mock
+    mock_session_instance = mock_session.return_value
+
+    # Set up context managers
+    token_context = AsyncMock()
+    token_context.__aenter__.return_value = token_resp
+
+    login_context = AsyncMock()
+    login_context.__aenter__.return_value = login_resp
+
+    checkcookie_context = AsyncMock()
+    checkcookie_context.__aenter__.return_value = checkcookie_resp
+
+    home_context = AsyncMock()
+    home_context.__aenter__.return_value = home_resp
+
+    def get_side_effect(url, **kwargs):
+        if "/token" in url:
+            return token_context
+        elif "checkcookie" in url and kwargs.get("allow_redirects") is False:
+            return checkcookie_context
+        else:  # home page (when checkcookie doesn't redirect)
+            return home_context
+
+    mock_session_instance.get.side_effect = get_side_effect
+    mock_session_instance.post.return_value = login_context
+
+    # Call login
+    await client.login("testuser", "testpass")
+
+    # Verify client state
+    assert client.user_id == "!9876543"
+    assert client._sid == "test_sid"
+
+
+@pytest.mark.asyncio
+@patch("wilhelmina.client.aiohttp.ClientSession")
+async def test_login_checkcookie_style_user_id_extraction_patterns(mock_session) -> None:
+    """Test different patterns for extracting user ID from checkcookie home page."""
+    client = WilmaClient("https://test.inschool.fi", debug=False)
+
+    # Setup basic mocks
+    login_id_cookie = MagicMock()
+    login_id_cookie.value = "test_login_id"
+
+    token_resp = AsyncMock()
+    token_resp.status = 200
+    token_resp.cookies = MagicMock()
+    token_resp.cookies.get = MagicMock(return_value=login_id_cookie)
+
+    sid_cookie = MagicMock()
+    sid_cookie.value = "test_sid"
+
+    login_resp = AsyncMock()
+    login_resp.status = 302
+    login_resp.cookies = MagicMock()
+    login_resp.cookies.get = MagicMock(return_value=sid_cookie)
+    login_resp.headers = {"Location": "https://test.inschool.fi/?checkcookie"}
+
+    checkcookie_resp = AsyncMock()
+    checkcookie_resp.status = 302
+    checkcookie_resp.headers = {"Location": "https://test.inschool.fi/"}
+
+    mock_session_instance = mock_session.return_value
+
+    # Test pattern 1: URL in quotes
+    home_resp1 = AsyncMock()
+    home_resp1.status = 200
+    home_resp1.text = AsyncMock(return_value='<script>var url = "/!9876543/messages";</script>')
+
+    # Test pattern 2: userId variable
+    home_resp2 = AsyncMock()
+    home_resp2.status = 200
+    home_resp2.text = AsyncMock(return_value='<script>userId = "!9876544";</script>')
+
+    test_cases = [
+        (home_resp1, "!9876543"),
+        (home_resp2, "!9876544"),
+    ]
+
+    for home_resp, expected_user_id in test_cases:
+        # Reset client state
+        client.user_id = None
+        client._sid = None
+
+        # Set up context managers
+        token_context = AsyncMock()
+        token_context.__aenter__.return_value = token_resp
+
+        login_context = AsyncMock()
+        login_context.__aenter__.return_value = login_resp
+
+        checkcookie_context = AsyncMock()
+        checkcookie_context.__aenter__.return_value = checkcookie_resp
+
+        home_context = AsyncMock()
+        home_context.__aenter__.return_value = home_resp
+
+        def get_side_effect(
+            url,
+            token_ctx=token_context,
+            checkcookie_ctx=checkcookie_context,
+            home_ctx=home_context,
+            **kwargs,
+        ):
+            if "/token" in url:
+                return token_ctx
+            elif "checkcookie" in url:
+                return checkcookie_ctx
+            else:
+                return home_ctx
+
+        mock_session_instance.get.side_effect = get_side_effect
+        mock_session_instance.post.return_value = login_context
+
+        # Call login
+        await client.login("testuser", "testpass")
+
+        # Verify the expected user ID was extracted
+        assert client.user_id == expected_user_id
+
+
+@pytest.mark.asyncio
+@patch("wilhelmina.client.aiohttp.ClientSession")
+async def test_login_checkcookie_style_extraction_failure(mock_session) -> None:
+    """Test checkcookie style login when user ID cannot be extracted from home page."""
+    client = WilmaClient("https://test.inschool.fi", debug=False)
+
+    # Setup mocks
+    login_id_cookie = MagicMock()
+    login_id_cookie.value = "test_login_id"
+
+    token_resp = AsyncMock()
+    token_resp.status = 200
+    token_resp.cookies = MagicMock()
+    token_resp.cookies.get = MagicMock(return_value=login_id_cookie)
+
+    sid_cookie = MagicMock()
+    sid_cookie.value = "test_sid"
+
+    login_resp = AsyncMock()
+    login_resp.status = 302
+    login_resp.cookies = MagicMock()
+    login_resp.cookies.get = MagicMock(return_value=sid_cookie)
+    login_resp.headers = {"Location": "https://test.inschool.fi/?checkcookie"}
+
+    checkcookie_resp = AsyncMock()
+    checkcookie_resp.status = 302
+    checkcookie_resp.headers = {"Location": "https://test.inschool.fi/"}
+
+    # Home page without user ID pattern
+    home_resp = AsyncMock()
+    home_resp.status = 200
+    home_resp.text = AsyncMock(return_value="<html><body><h1>Welcome to Wilma</h1></body></html>")
+
+    mock_session_instance = mock_session.return_value
+
+    # Set up context managers
+    token_context = AsyncMock()
+    token_context.__aenter__.return_value = token_resp
+
+    login_context = AsyncMock()
+    login_context.__aenter__.return_value = login_resp
+
+    checkcookie_context = AsyncMock()
+    checkcookie_context.__aenter__.return_value = checkcookie_resp
+
+    home_context = AsyncMock()
+    home_context.__aenter__.return_value = home_resp
+
+    def get_side_effect(url, **kwargs):
+        if "/token" in url:
+            return token_context
+        elif "checkcookie" in url:
+            return checkcookie_context
+        else:
+            return home_context
+
+    mock_session_instance.get.side_effect = get_side_effect
+    mock_session_instance.post.return_value = login_context
+
+    # Should raise AuthenticationError when user ID cannot be extracted
+    with pytest.raises(AuthenticationError, match="Could not extract user ID from home page"):
+        await client.login("testuser", "testpass")
+
+
+@pytest.mark.asyncio
 async def test_login_response_errors() -> None:
     """Test various error conditions during login."""
     client = WilmaClient("https://test.inschool.fi")

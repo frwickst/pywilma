@@ -125,6 +125,100 @@ class WilmaClient:
             if not location:
                 raise AuthenticationError("No Location header in response")
 
+            # Handle checkcookie redirect - follow it to get the actual location
+            if "checkcookie" in location and "!" not in location:
+                logger.debug("Following checkcookie redirect: %s", location)
+
+                # Use allow_redirects=False to see each redirect step
+                async with session.get(location, allow_redirects=False) as redirect_response:
+                    logger.debug("Checkcookie response status: %s", redirect_response.status)
+                    if redirect_response.status in [302, 303, 301, 307, 308]:
+                        new_location = redirect_response.headers.get("Location")
+                        if new_location:
+                            # If the new location still doesn't have !, try extracting from home page
+                            if (
+                                "!" not in new_location
+                                and new_location.rstrip("/") == self.base_url
+                            ):
+                                logger.debug("Redirect to root, extracting user ID from home page")
+                                async with session.get(self.base_url) as home_response:
+                                    if home_response.status != 200:
+                                        raise AuthenticationError(
+                                            f"Failed to load home page: {home_response.status}"
+                                        )
+
+                                    home_content = await home_response.text()
+                                    # Look for user ID in the page content - Wilma typically has it in URLs or JavaScript
+                                    import re
+
+                                    user_id_match = re.search(
+                                        r'["\'/](![\w\d]+)["\'/]', home_content
+                                    )
+                                    if user_id_match:
+                                        self.user_id = user_id_match.group(1)
+                                        logger.debug(
+                                            "Extracted user ID from home page: %s", self.user_id
+                                        )
+                                        return
+                                    else:
+                                        # Try looking for it in a different pattern
+                                        user_id_match = re.search(
+                                            r'user[Ii]d["\']?\s*[:=]\s*["\']?(![\w\d]+)',
+                                            home_content,
+                                        )
+                                        if user_id_match:
+                                            self.user_id = user_id_match.group(1)
+                                            logger.debug(
+                                                "Extracted user ID from home page (pattern 2): %s",
+                                                self.user_id,
+                                            )
+                                            return
+                                        else:
+                                            raise AuthenticationError(
+                                                "Could not extract user ID from home page after checkcookie redirect"
+                                            )
+                            else:
+                                location = new_location
+                                logger.debug("Got redirect location: %s", location)
+                        else:
+                            raise AuthenticationError("No Location header in checkcookie redirect")
+                    else:
+                        # Some instances redirects to root, need to extract user ID differently
+                        logger.debug(
+                            "No redirect from checkcookie, trying to find user ID from home page"
+                        )
+                        async with session.get(self.base_url) as home_response:
+                            if home_response.status != 200:
+                                raise AuthenticationError(
+                                    f"Failed to load home page: {home_response.status}"
+                                )
+
+                            home_content = await home_response.text()
+                            # Look for user ID in the page content - Wilma typically has it in URLs or JavaScript
+                            import re
+
+                            user_id_match = re.search(r'["\'/](![\w\d]+)["\'/]', home_content)
+                            if user_id_match:
+                                self.user_id = user_id_match.group(1)
+                                logger.debug("Extracted user ID from home page: %s", self.user_id)
+                                return
+                            else:
+                                # Try looking for it in a different pattern
+                                user_id_match = re.search(
+                                    r'user[Ii]d["\']?\s*[:=]\s*["\']?(![\w\d]+)', home_content
+                                )
+                                if user_id_match:
+                                    self.user_id = user_id_match.group(1)
+                                    logger.debug(
+                                        "Extracted user ID from home page (pattern 2): %s",
+                                        self.user_id,
+                                    )
+                                    return
+                                else:
+                                    raise AuthenticationError(
+                                        "Could not extract user ID from home page after checkcookie redirect"
+                                    )
+
             if "!" not in location:
                 raise AuthenticationError(f"Invalid Location header: {location}")
 
