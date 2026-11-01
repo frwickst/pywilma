@@ -136,3 +136,21 @@ def test_messages_list_model() -> None:
     assert messages_list.messages[0].subject == "Test message 1"
     assert messages_list.messages[1].id == 2
     assert messages_list.messages[1].subject == "Test message 2"
+
+
+def test_message_from_dict_without_sender() -> None:
+    """Messages without a sender (e.g. school-wide notices) still parse."""
+    data = {
+        "Id": 2,
+        "Subject": "School-wide notice",
+        "TimeStamp": "2025-10-28 08:00",
+        "Folder": "Inbox",
+    }
+
+    message = Message.from_dict(data)
+
+    assert message.id == 2
+    assert message.subject == "School-wide notice"
+    assert message.sender_id is None
+    assert message.sender_type is None
+    assert message.sender == ""

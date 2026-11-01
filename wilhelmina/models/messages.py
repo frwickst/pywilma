@@ -29,9 +29,9 @@ class Message(DataClassDictMixin):
     subject: str
     timestamp: str
     folder: str
-    sender_id: int
-    sender_type: int
-    sender: str
+    sender_id: int | None = None
+    sender_type: int | None = None
+    sender: str = ""
     content_html: str | None = None
     allow_forward: bool = True
     allow_reply: bool = True
