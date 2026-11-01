@@ -154,3 +154,13 @@ def test_message_from_dict_without_sender() -> None:
     assert message.sender_id is None
     assert message.sender_type is None
     assert message.sender == ""
+
+
+def test_reply_from_dict_without_sender() -> None:
+    """Replies without a sender still parse."""
+    from wilhelmina.models import Reply
+
+    reply = Reply.from_dict({"Id": "1s1:1", "TimeStamp": "2025-10-28 08:00"})
+
+    assert reply.sender == ""
+    assert reply.sender_id is None

@@ -3,7 +3,6 @@
 import datetime
 import logging
 from typing import Any, Dict, Generator, List
-from unittest.mock import AsyncMock
 
 import pytest
 
@@ -41,15 +40,13 @@ def messages_data() -> Dict[str, List[Dict[str, Any]]]:
                 "Id": 1,
                 "Subject": "Test message 1",
                 "TimeStamp": "2025-04-16 13:31",
-                "Folder": "Inbox",
+                "Folder": "inbox",
                 "SenderId": 123,
                 "SenderType": 1,
                 "Sender": "Teacher 1",
-                "ContentHtml": "<p>Message 1 content</p>",
-                "AllowForward": True,
-                "AllowReply": True,
-                "ReplyList": [],
                 "Senders": [{"Name": "Teacher 1", "Href": "/profiles/123"}],
+                "Status": 1,
+                "Replies": 1,
             },
             {
                 "Id": 2,
@@ -99,24 +96,24 @@ def message_content_data() -> Dict[str, Any]:
                 "ContentHtml": "<p>This is a test message content.</p>",
                 "AllowForward": True,
                 "AllowReply": True,
-                "ReplyList": [],
+                "Recipient": "Guardian A",
+                "RecipientCount": 1,
+                "Recipients": ["Guardian A"],
+                "Replies": 1,
+                "ReplyList": [
+                    {
+                        "Id": "1s15:16",
+                        "ContentHtml": "<p>Thanks!</p>",
+                        "TimeStamp": "2025-04-16 14:00",
+                        "SenderId": 123,
+                        "SenderType": 1,
+                        "Sender": "Teacher 1",
+                    }
+                ],
                 "Senders": [{"Name": "Teacher 1", "Href": "/profiles/123"}],
             }
         ]
     }
-
-
-@pytest.fixture
-def mock_authenticated_request(authenticated_client):
-    """Mock the _authenticated_request method."""
-
-    async def _mock_request(url_template, *args, **kwargs):
-        resp = AsyncMock()
-        resp.status = 200
-        return resp
-
-    authenticated_client._authenticated_request = AsyncMock(side_effect=_mock_request)
-    return authenticated_client
 
 
 @pytest.fixture

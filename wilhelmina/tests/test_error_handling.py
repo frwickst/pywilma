@@ -1,6 +1,6 @@
 """Tests for error handling in WilmaClient."""
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -15,7 +15,7 @@ async def test_not_authenticated() -> None:
 
     # Methods that require authentication
     with pytest.raises(AuthenticationError, match="Not authenticated"):
-        await client._check_auth()
+        client._check_auth()
 
     with pytest.raises(AuthenticationError):
         await client.get_messages()
@@ -25,13 +25,9 @@ async def test_not_authenticated() -> None:
 
 
 @pytest.mark.asyncio
-@patch("wilhelmina.client.WilmaClient._get_unread_message_ids")
-async def test_message_content_fetch_limit(mock_get_unread, authenticated_client) -> None:
+async def test_message_content_fetch_limit(authenticated_client) -> None:
     """Test the message content fetch limit."""
     client = authenticated_client
-
-    # Mock unread IDs
-    mock_get_unread.return_value = set()
 
     # With more than 10 messages and no override, should fail
     # Build a response that has > 10 messages
@@ -54,32 +50,13 @@ async def test_message_content_fetch_limit(mock_get_unread, authenticated_client
             }
         )
 
-    # Set up response mock
-    resp = AsyncMock()
-    resp.status = 200
-    resp.json.return_value = messages_with_many
-    client._authenticated_request = AsyncMock(return_value=resp)
+    client._get_json = AsyncMock(return_value=messages_with_many)
+    client.get_message_content = AsyncMock()
 
     # Try to fetch content for all messages without override - should fail
     with pytest.raises(WilmaError, match="Not allowed to fetch full message content"):
         await client.get_messages(with_content=True)
-
-
-@pytest.mark.asyncio
-@patch("wilhelmina.client.importlib.util")
-@patch("wilhelmina.client._has_playwright", False)
-async def test_get_unread_ids_no_playwright(mock_importlib, authenticated_client) -> None:
-    """Test behavior when Playwright is not available."""
-    client = authenticated_client
-
-    # Mock importlib to make _has_playwright return False
-    mock_importlib.find_spec.return_value = None
-
-    # Call the method - should return empty set
-    unread_ids = await client._get_unread_message_ids()
-
-    # Should return empty set when Playwright is not available
-    assert unread_ids == set()
+    client.get_message_content.assert_not_awaited()
 
 
 @pytest.mark.asyncio

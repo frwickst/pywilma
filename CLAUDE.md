@@ -14,11 +14,19 @@ This project is an API client for the Wilma school platform. It allows authentic
   - `models/` - Data models
     - `__init__.py` - Model exports
     - `messages.py` - Message-related data models
+    - `attendance.py` - Lesson mark (attendance) models
+    - `schedule.py` - Schedule and role models
+  - `parsers/` - HTML parsers for pages without a JSON endpoint
+    - `attendance.py` - Attendance view parser
   - `tests/` - Test suite
     - `__init__.py`
     - `conftest.py` - Pytest configuration
     - `test_client.py` - Tests for API client
     - `test_models.py` - Tests for data models
+    - `test_error_handling.py` - Tests for error paths
+    - `test_attendance.py` - Tests for attendance parsing and fetching
+    - `test_schedule.py` - Tests for roles and schedule
+    - `test_utils.py` - Tests for utilities
   - `utils/` - Utility functions
     - `__init__.py` - Utility exports
 
@@ -40,6 +48,9 @@ poetry run mypy wilhelmina
 poetry run pytest
 ```
 
+Poetry is configured not to create virtualenvs; a project-local `.venv` (gitignored) works:
+`uv venv -p 3.14 .venv && VIRTUAL_ENV=$PWD/.venv POETRY_VIRTUALENVS_CREATE=true poetry install`
+
 ## API Authentication Flow
 
 1. Call `GET https://turku.inschool.fi/token` to get a `Wilma2LoginID` cookie
@@ -49,16 +60,67 @@ poetry run pytest
    - The user ID from the `Location` header (format: `/!04354289?checkcookie`)
 4. Include the `Wilma2SID` header in all subsequent requests
 
+## Read-only Policy
+
+The library is read-only. Login (`POST /login`) is the only non-GET request allowed. Never add
+or call an endpoint that could perform an action (sending, replying, approving, registering,
+deleting, archiving, etc.) without explicit approval from the maintainer. All data requests
+go through `WilmaClient._get_json`, which only issues GET requests.
+
 ## API Endpoints
 
-- `GET /<USERID>/messages/list` - Get list of messages
-- `GET /<USERID>/messages/<MESSAGEID>?format=json` - Get message content
+- `GET /<USERID>/messages/list` - Inbox; returns all messages in one response
+- `GET /<USERID>/messages/list/{archive,outbox,drafts,appointments}` - Other folders
+- `GET /<USERID>/messages/<MESSAGEID>?format=json` - Message content and `ReplyList`.
+  **Side effect: marks the message as read** (cannot be undone)
+
+- `GET /<USERID>/attendance/view?range=<n>` - Lesson marks, **HTML only** (parsed). Ranges:
+  `0` four weeks, `-1` autumn, `-2` spring, `1`/`2`.. periods, `-4` school year,
+  `-3&first=d.m.yyyy&last=d.m.yyyy` custom (also works for previous school years)
+- `GET /<USERID>/schedule/export/students/<primusId>?date=d.m.yyyy&getfullweek=true` - JSON
+  lessons of the Mon-Sun week containing `date` (`Day` = ISO weekday; holidays are empty),
+  plus `Terms`
+- `GET /api/v1/accounts/me/roles` - JSON roles of the account (site root, not under the user
+  ID); maps a role's `slug` (`/!<USERID>`) to its `primusId`. Payload also has a `formKey`
+  (form token) which the library deliberately drops
+- `GET /<USERID>/overview` - JSON with this week's schedule, exams and groups (not used yet)
+
+List entries carry `Status: 1` when unread; read messages omit `Status`.
+
+Attendance view: each mark is `td.event.at-tp<ID>` with a `title` like
+`course; name[; comment] /Teacher[ - d.m. /Clarifier]` (course may be missing). The legend
+(`.legend`) maps type IDs to code/description; inline `<style>` holds each type's colour.
+Overlapping marks continue on extra rows without a date.
+Marks have no Wilma ID; `AttendanceMark.key` (date|hour|type|course|teacher code|name, plus
+`#n` for identical marks) is the stable identity the Home Assistant integration uses to detect
+new marks. Don't change the key format without considering that stored keys would all look new.
+
+## Related Projects
+
+- `../wilma_ha` - Home Assistant integration built on this library (pins an exact version)
+- `../wilhelminacli` - CLI built on this library
+
+## Wilma Behavior
+
+- Only one session per account: logging in invalidates all other sessions for that user
+- An invalidated session redirects requests to `/login?invalidsession&returnpath=...`, which can
+  redirect to itself forever, so `_get` never follows redirects; it re-logs in once instead
+- 401 means re-login needed; 403 can mean either an invalid session or no permission
+- Timestamps are naive Europe/Helsinki local time
 
 ## Data Models
 
-- `Message` - Represents a message in the messages list
+- `Message` - A message (list metadata, plus content/replies when fetched individually)
+- `MessageFolder` - Folder enum mapping to the list endpoints
+- `Reply` - A reply in a message thread
 - `MessagesList` - Container for a list of messages
 - `Sender` - Information about the sender of a message
+- `AttendanceReport` - Lesson marks plus the school's mark types
+- `AttendanceMark` - A single lesson mark
+- `MarkType` - Mark type from the legend (code, description, colour)
+- `AttendanceRange` - Predefined attendance view ranges
+- `WeekSchedule` / `Lesson` / `ScheduleGroup` / `Term` - Schedule of a week
+- `Role` - A role of the logged-in account
 
 ## Common Issues and Solutions
 
