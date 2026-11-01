@@ -24,6 +24,9 @@ The client is **read-only**: logging in is the only non-GET request it makes.
   - [X] School terms
 - [X] Bulletins (the school's bulletin board): current, pinned and older bulletins, and
       single bulletins with their content
+- [X] Exams of the current courses, upcoming and past: date, subject, what the exam covers,
+      teachers, and the grade (and verbal assessment) once graded
+- [X] Current courses with their teachers, homework and lesson diary notes
 - [X] Multiple students: `get_students()` lists the account's children; every data method
       takes a `user_id` to read that student's data
 - [X] Roles of the account (e.g. one guardian role per child)
@@ -39,6 +42,8 @@ The client is **read-only**: logging in is the only non-GET request it makes.
 - The list endpoints return every message in the folder in a single response; the
   pagination in the web UI is client-side only.
 - Lesson marks have no JSON endpoint; they are parsed from the attendance view's HTML.
+- Reading exams, homework and courses (the student's overview) does not mark grades as seen.
+  The library does not read the grade book.
 - Timestamps are naive Finnish local time. Timezone-aware `after=` values are converted to
   the client's `timezone` (default `Europe/Helsinki`).
 
@@ -121,6 +126,17 @@ async def main():
         if bulletins:
             full = await client.get_bulletin(bulletins[0].id)
             print(full.title, full.date, full.content_markdown)
+
+        # Exams, courses, homework and lesson diary (one request)
+        overview = await client.get_overview()
+        for exam in overview.upcoming_exams(client.today()):
+            print(exam.date, exam.subject, exam.info, exam.teacher_names)
+        for exam in overview.graded_exams():
+            print(exam.date, exam.subject, exam.grade, exam.verbal_grade)
+        for homework in overview.homework[:5]:
+            print(homework.date, homework.subject, homework.text)
+        for course in overview.courses:
+            print(course.code, course.name, course.teacher_names)
 
         # Several children on one account: pass a student's user_id to any data method
         for student in await client.get_students():

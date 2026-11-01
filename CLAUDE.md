@@ -17,6 +17,7 @@ This project is an API client for the Wilma school platform. It allows authentic
     - `attendance.py` - Lesson mark (attendance) models
     - `schedule.py` - Schedule and role models
     - `news.py` - Bulletin models
+    - `overview.py` - Exam, course, homework and lesson diary models (from `/overview`)
   - `parsers/` - HTML parsers for pages without a JSON endpoint
     - `attendance.py` - Attendance view parser
     - `news.py` - Bulletin board and bulletin parsers
@@ -29,6 +30,7 @@ This project is an API client for the Wilma school platform. It allows authentic
     - `test_attendance.py` - Tests for attendance parsing and fetching
     - `test_schedule.py` - Tests for roles and schedule
     - `test_news.py` - Tests for bulletins
+    - `test_overview.py` - Tests for exams, courses, homework and diary
     - `test_utils.py` - Tests for utilities
   - `utils/` - Utility functions
     - `__init__.py` - Utility exports
@@ -92,7 +94,20 @@ go through `WilmaClient._get_json`, which only issues GET requests.
   the pinned one regardless of language. `news/index_json` is 403 for guardians.
 - `GET /<USERID>/news/<ID>` - Single bulletin, HTML: `#news-content` body, published date
   (year omitted for recent ones), author and audience
-- `GET /<USERID>/overview` - JSON with this week's schedule, exams and groups (not used yet)
+- `GET /<USERID>/overview` - JSON (`get_overview()`/`get_exams()`): `Exams` (the exams of the
+  student's current courses, past and upcoming, with `Grade`, `ExamSeen` and teachers; `Id` is
+  the group ID, `ExamId` the exam ID, `Date` is `d.m.yyyy`, and `Grade`/`ExamSeen` are absent
+  until set) and `Groups` (current courses with teachers, `Homework`, `Diary` and per-course
+  `Exams`, which add the exam's `Name` and `VerbalGrade`; dates ISO). Homework and diary share
+  a per-course `RowNumber`. Also has a recurring weekly `Schedule` (unused; the schedule export
+  reflects actual weeks). Reading it does not mark anything as seen.
+- `GET /<USERID>/exams/calendar` (upcoming) and `/exams/calendar/past?range=-3&first=d.m.yyyy&last=d.m.yyyy`
+  - Exam calendar, **HTML only**, without exam IDs; the same exams as the overview plus the
+  date a grade was seen. Not used: it adds nothing over the overview. `format=json` is ignored
+  and `exams/index_json` is 403 for guardians. Marking grades seen is a separate `POST
+  /exams/seen` form, which must never be called.
+- `GET /<USERID>/gradebook` - Grade book ("Suoritukset"/"Prestationer"). Deliberately not used:
+  it is not proven free of side effects (viewing grades may mark them seen)
 
 Every user-scoped data method takes `user_id`; a guardian account has one user ID per child
 (`get_students()`), and the same session can read all of them.
@@ -134,6 +149,12 @@ new marks. Don't change the key format without considering that stored keys woul
 - `WeekSchedule` / `Lesson` / `ScheduleGroup` / `Term` - Schedule of a week
 - `Role` - A role of the logged-in account
 - `Bulletin` / `BulletinSection` - A bulletin and where it is listed
+- `Overview` - A student's current courses and their exams (`upcoming_exams()`, `graded_exams()`,
+  `homework`, `diary`)
+- `Exam` - An exam with date, subject, info, teachers and (once graded) grade; `id` is stable
+- `Course` / `CourseTeacher` - A current course (teaching group) and its teachers
+- `Homework` - Homework from a course's lesson diary; `key` (group|row|date) is its identity
+- `DiaryEntry` - A lesson diary entry (lesson topic and note)
 
 ## Common Issues and Solutions
 

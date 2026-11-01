@@ -8,6 +8,14 @@ from wilhelmina.models.attendance import (
 )
 from wilhelmina.models.messages import Message, MessageFolder, MessagesList, Reply, Sender
 from wilhelmina.models.news import Bulletin, BulletinSection
+from wilhelmina.models.overview import (
+    Course,
+    CourseTeacher,
+    DiaryEntry,
+    Exam,
+    Homework,
+    Overview,
+)
 from wilhelmina.models.schedule import (
     Lesson,
     Role,
@@ -31,6 +39,12 @@ __all__ = [
     "Sender",
     "Bulletin",
     "BulletinSection",
+    "Course",
+    "CourseTeacher",
+    "DiaryEntry",
+    "Exam",
+    "Homework",
+    "Overview",
     "Lesson",
     "Role",
     "School",

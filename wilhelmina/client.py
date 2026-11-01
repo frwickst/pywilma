@@ -16,9 +16,11 @@ import aiohttp
 from wilhelmina.models import (
     AttendanceRange,
     AttendanceReport,
+    Exam,
     Lesson,
     Message,
     MessageFolder,
+    Overview,
     Role,
     ScheduleGroup,
     Term,
@@ -513,6 +515,38 @@ class WilmaClient:
         """A single bulletin with its content. Reading bulletins does not change any state."""
         html = await self._get_text(f"news/{news_id}", user_id=user_id)
         return parse_bulletin(html, news_id, self.today())
+
+    ################################
+    # Exams, courses and homework
+    ################################
+
+    async def get_overview(self, user_id: str | None = None) -> Overview:
+        """The student's current courses with their teachers, exams (upcoming and past,
+        with grades), homework and lesson diary.
+
+        Reading the overview does not mark exams or grades as seen.
+
+        Args:
+            user_id: Whose overview to get. Defaults to the logged-in user ID.
+        """
+        data = await self._get_json("overview", user_id=user_id)
+        if not isinstance(data, dict):
+            raise WilmaError("Unexpected overview response")
+        try:
+            return Overview.from_api(data)
+        except (KeyError, TypeError, ValueError) as err:
+            raise WilmaError(f"Unexpected overview response: {err}") from err
+
+    async def get_exams(self, user_id: str | None = None) -> list[Exam]:
+        """Exams of the student's current courses, upcoming and past, oldest first.
+
+        Past exams carry their grade once the teacher has entered it. Use
+        ``Overview.upcoming_exams()`` on ``get_overview()`` to get only upcoming ones.
+
+        Args:
+            user_id: Whose exams to get. Defaults to the logged-in user ID.
+        """
+        return (await self.get_overview(user_id=user_id)).exams
 
     ################################
     # Roles and schedule
