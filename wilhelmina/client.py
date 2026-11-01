@@ -24,7 +24,9 @@ from wilhelmina.models import (
     Term,
     WeekSchedule,
 )
+from wilhelmina.models.news import Bulletin
 from wilhelmina.parsers.attendance import parse_attendance_html
+from wilhelmina.parsers.news import parse_bulletin, parse_bulletin_list
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +41,9 @@ _USER_ID_PATTERNS = (
 )
 
 _REDIRECT_STATUSES = (301, 302, 303, 307, 308)
+
+# Role types whose user ID gives access to a student's data
+_STUDENT_ROLE_TYPES = ("guardian", "student")
 
 # Fetching full content marks messages as read server-side, so bulk fetches need an
 # explicit opt-in above this size.
@@ -263,10 +268,11 @@ class WilmaClient:
         *,
         as_json: bool = True,
         user_scoped: bool = True,
+        user_id: str | None = None,
         retry_on_expired_session: bool = True,
     ) -> Any:
-        """GET a resource under the user root (``/<user_id>/<path>``), or under the site root
-        when ``user_scoped`` is false.
+        """GET a resource under a user root (``/<user_id>/<path>``), or under the site root
+        when ``user_scoped`` is false. ``user_id`` defaults to the logged-in user ID.
 
         This is the only method that requests data from Wilma, and it only issues GET
         requests, which keeps the client read-only. Redirects are not followed: data
@@ -275,7 +281,7 @@ class WilmaClient:
         """
         self._check_auth()
         session = await self._ensure_session()
-        root = f"{self.base_url}/{self.user_id}" if user_scoped else self.base_url
+        root = f"{self.base_url}/{user_id or self.user_id}" if user_scoped else self.base_url
         url = f"{root}/{path.lstrip('/')}"
         headers = {"Wilma2SID": self._sid or ""}
 
@@ -299,6 +305,7 @@ class WilmaClient:
                 params,
                 as_json=as_json,
                 user_scoped=user_scoped,
+                user_id=user_id,
                 retry_on_expired_session=False,
             )
 
@@ -321,14 +328,21 @@ class WilmaClient:
             raise WilmaError(f"Expected JSON from {url}: {err}") from err
 
     async def _get_json(
-        self, path: str, params: dict[str, str] | None = None, *, user_scoped: bool = True
+        self,
+        path: str,
+        params: dict[str, str] | None = None,
+        *,
+        user_scoped: bool = True,
+        user_id: str | None = None,
     ) -> Any:
-        """GET a JSON resource under the user root (or the site root)."""
-        return await self._get(path, params, user_scoped=user_scoped)
+        """GET a JSON resource under a user root (or the site root)."""
+        return await self._get(path, params, user_scoped=user_scoped, user_id=user_id)
 
-    async def _get_text(self, path: str, params: dict[str, str] | None = None) -> str:
-        """GET an HTML page under the user root."""
-        text: str = await self._get(path, params, as_json=False)
+    async def _get_text(
+        self, path: str, params: dict[str, str] | None = None, *, user_id: str | None = None
+    ) -> str:
+        """GET an HTML page under a user root."""
+        text: str = await self._get(path, params, as_json=False, user_id=user_id)
         return text
 
     ################################
@@ -342,6 +356,7 @@ class WilmaClient:
         with_content: bool = False,
         no_message_content_fetch_limit: bool = False,
         folder: MessageFolder = MessageFolder.INBOX,
+        user_id: str | None = None,
     ) -> list[Message]:
         """Get all messages in a folder, newest first.
 
@@ -357,8 +372,10 @@ class WilmaClient:
                 message as read in Wilma.
             no_message_content_fetch_limit: Allow ``with_content`` for more than 10 messages.
             folder: Which folder to list.
+            user_id: Whose messages to list, e.g. another child's user ID from
+                ``get_students()``. Defaults to the logged-in user ID.
         """
-        data = await self._get_json(folder.list_path)
+        data = await self._get_json(folder.list_path, user_id=user_id)
 
         if after and after.tzinfo is not None:
             after = after.astimezone(self.timezone).replace(tzinfo=None)
@@ -376,12 +393,16 @@ class WilmaClient:
             messages.append(message)
 
         if with_content:
-            await self.fetch_content(messages, no_message_content_fetch_limit)
+            await self.fetch_content(messages, no_message_content_fetch_limit, user_id=user_id)
 
         return messages
 
     async def fetch_content(
-        self, messages: list[Message], no_message_content_fetch_limit: bool = False
+        self,
+        messages: list[Message],
+        no_message_content_fetch_limit: bool = False,
+        *,
+        user_id: str | None = None,
     ) -> None:
         """Fetch full content and replies into listed messages, in place.
 
@@ -403,7 +424,7 @@ class WilmaClient:
 
         for message in messages:
             try:
-                full = await self.get_message_content(message.id)
+                full = await self.get_message_content(message.id, user_id=user_id)
             except WilmaError as e:
                 logger.warning("Failed to fetch content for message %s: %s", message.id, e)
                 continue
@@ -418,13 +439,15 @@ class WilmaClient:
                 if getattr(message, attr) is None:
                     setattr(message, attr, getattr(full, attr))
 
-    async def get_message_content(self, message_id: int) -> Message:
+    async def get_message_content(self, message_id: int, user_id: str | None = None) -> Message:
         """Get a single message with its full content and replies.
 
         This marks the message as read in Wilma. Wilma has no way to mark a message unread
         again.
         """
-        data = await self._get_json(f"messages/{message_id}", params={"format": "json"})
+        data = await self._get_json(
+            f"messages/{message_id}", params={"format": "json"}, user_id=user_id
+        )
 
         try:
             return Message.from_dict(data["messages"][0])
@@ -440,6 +463,7 @@ class WilmaClient:
         period: AttendanceRange | int = AttendanceRange.SCHOOL_YEAR,
         start: datetime.date | None = None,
         end: datetime.date | None = None,
+        user_id: str | None = None,
     ) -> AttendanceReport:
         """Get lesson marks: absences, lateness, positive feedback, homework, behaviour etc.
 
@@ -447,6 +471,7 @@ class WilmaClient:
             period: A predefined range of the attendance view, or a period number.
             start: First day of a custom range. Requires ``end``; overrides ``period``.
             end: Last day of a custom range. Requires ``start``.
+            user_id: Whose marks to get. Defaults to the logged-in user ID.
 
         Returns:
             The marks in the range, and every mark type the school has configured, with the
@@ -467,8 +492,27 @@ class WilmaClient:
         else:
             params = {"range": str(int(period))}
 
-        html = await self._get_text("attendance/view", params=params)
+        html = await self._get_text("attendance/view", params=params, user_id=user_id)
         return parse_attendance_html(html)
+
+    ################################
+    # Bulletins
+    ################################
+
+    async def get_bulletins(self, user_id: str | None = None) -> list[Bulletin]:
+        """Bulletins on the school's bulletin board: current ones (newest first), then pinned
+        and older ones. Listed bulletins have no content; use ``get_bulletin`` for that.
+
+        Args:
+            user_id: Whose bulletin board to read. Defaults to the logged-in user ID.
+        """
+        html = await self._get_text("news", user_id=user_id)
+        return parse_bulletin_list(html, self.today())
+
+    async def get_bulletin(self, news_id: int, user_id: str | None = None) -> Bulletin:
+        """A single bulletin with its content. Reading bulletins does not change any state."""
+        html = await self._get_text(f"news/{news_id}", user_id=user_id)
+        return parse_bulletin(html, news_id, self.today())
 
     ################################
     # Roles and schedule
@@ -482,10 +526,21 @@ class WilmaClient:
             raise WilmaError("Unexpected roles response")
         return [Role.from_dict(role) for role in payload if isinstance(role, dict)]
 
-    async def _primus_id(self) -> int:
-        """Numeric ID of the person the current user ID refers to (e.g. the student)."""
+    async def get_students(self) -> list[Role]:
+        """The students the account can see: its guardian roles, or its own student role.
+
+        Pass a student's ``user_id`` to the data methods to get that student's data.
+        """
+        return [
+            role
+            for role in await self.get_roles()
+            if role.user_id and role.type in _STUDENT_ROLE_TYPES
+        ]
+
+    async def _primus_id(self, user_id: str | None = None) -> int:
+        """Numeric ID of the person a user ID refers to (e.g. the student)."""
         self._check_auth()
-        user_id = self.user_id or ""
+        user_id = user_id or self.user_id or ""
         if user_id not in self._primus_ids:
             for role in await self.get_roles():
                 if role.user_id:
@@ -498,20 +553,24 @@ class WilmaClient:
         """Today's date in the Wilma instance's timezone."""
         return datetime.datetime.now(self.timezone).date()
 
-    async def get_schedule(self, day: datetime.date | None = None) -> WeekSchedule:
+    async def get_schedule(
+        self, day: datetime.date | None = None, user_id: str | None = None
+    ) -> WeekSchedule:
         """Get the lessons of the Monday-to-Sunday week containing ``day``.
 
         The schedule reflects the actual week: holidays and other days off have no lessons.
 
         Args:
             day: Any date in the wanted week. Defaults to today.
+            user_id: Whose schedule to get. Defaults to the logged-in user ID.
         """
         day = day or self.today()
         week_start = day - datetime.timedelta(days=day.weekday())
-        primus_id = await self._primus_id()
+        primus_id = await self._primus_id(user_id)
         data = await self._get_json(
             f"schedule/export/students/{primus_id}",
             params={"date": f"{day.day}.{day.month}.{day.year}", "getfullweek": "true"},
+            user_id=user_id,
         )
         if not isinstance(data, dict):
             raise WilmaError("Unexpected schedule response")

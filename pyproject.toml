@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "wilhelmina"
-version = "0.2.0"
+version = "0.3.0"
 description = "API client for Wilma school portal"
 authors = ["Frank Wickström <frwickst@gmail.com>"]
 repository = "https://github.com/frwickst/pywilma"

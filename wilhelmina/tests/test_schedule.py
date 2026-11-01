@@ -77,7 +77,13 @@ def _client(responses: dict[str, Any]) -> WilmaClient:
     client.user_id = "!12345"
     client._sid = "sid"
 
-    async def get_json(path: str, params: dict | None = None, *, user_scoped: bool = True):
+    async def get_json(
+        path: str,
+        params: dict | None = None,
+        *,
+        user_scoped: bool = True,
+        user_id: str | None = None,
+    ):
         return responses[path]
 
     client._get_json = AsyncMock(side_effect=get_json)
@@ -117,7 +123,9 @@ async def test_get_schedule() -> None:
     week = await client.get_schedule(datetime.date(2026, 11, 4))
 
     client._get_json.assert_any_await(
-        "schedule/export/students/345", params={"date": "4.11.2026", "getfullweek": "true"}
+        "schedule/export/students/345",
+        params={"date": "4.11.2026", "getfullweek": "true"},
+        user_id=None,
     )
     assert isinstance(week, WeekSchedule)
     assert week.week_start == datetime.date(2026, 11, 2)
@@ -206,3 +214,41 @@ async def test_get_schedule_unexpected_response(payload: Any) -> None:
 def test_week_schedule_serializes() -> None:
     week = WeekSchedule(week_start=datetime.date(2026, 11, 2))
     assert WeekSchedule.from_dict(week.to_dict()) == week
+
+
+TWO_CHILDREN = {
+    "payload": [
+        {"name": "Parent", "type": "passwd", "primusId": 1, "slug": ""},
+        {"name": "Child One", "type": "guardian", "primusId": 345, "slug": "/!12345"},
+        {"name": "Child Two", "type": "guardian", "primusId": 678, "slug": "/!67890"},
+        {"name": "Some Teacher", "type": "teacher", "primusId": 9, "slug": "/!09999"},
+    ]
+}
+
+
+@pytest.mark.asyncio
+async def test_get_students() -> None:
+    client = _client({"api/v1/accounts/me/roles": TWO_CHILDREN})
+
+    students = await client.get_students()
+
+    assert [(s.name, s.user_id) for s in students] == [
+        ("Child One", "!12345"),
+        ("Child Two", "!67890"),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_get_schedule_for_other_student() -> None:
+    client = _client(
+        {"api/v1/accounts/me/roles": TWO_CHILDREN, "schedule/export/students/678": SCHEDULE}
+    )
+
+    week = await client.get_schedule(datetime.date(2026, 11, 4), user_id="!67890")
+
+    client._get_json.assert_any_await(
+        "schedule/export/students/678",
+        params={"date": "4.11.2026", "getfullweek": "true"},
+        user_id="!67890",
+    )
+    assert len(week.lessons) == 3

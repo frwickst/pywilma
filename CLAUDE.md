@@ -16,8 +16,10 @@ This project is an API client for the Wilma school platform. It allows authentic
     - `messages.py` - Message-related data models
     - `attendance.py` - Lesson mark (attendance) models
     - `schedule.py` - Schedule and role models
+    - `news.py` - Bulletin models
   - `parsers/` - HTML parsers for pages without a JSON endpoint
     - `attendance.py` - Attendance view parser
+    - `news.py` - Bulletin board and bulletin parsers
   - `tests/` - Test suite
     - `__init__.py`
     - `conftest.py` - Pytest configuration
@@ -26,6 +28,7 @@ This project is an API client for the Wilma school platform. It allows authentic
     - `test_error_handling.py` - Tests for error paths
     - `test_attendance.py` - Tests for attendance parsing and fetching
     - `test_schedule.py` - Tests for roles and schedule
+    - `test_news.py` - Tests for bulletins
     - `test_utils.py` - Tests for utilities
   - `utils/` - Utility functions
     - `__init__.py` - Utility exports
@@ -83,7 +86,16 @@ go through `WilmaClient._get_json`, which only issues GET requests.
 - `GET /api/v1/accounts/me/roles` - JSON roles of the account (site root, not under the user
   ID); maps a role's `slug` (`/!<USERID>`) to its `primusId`. Payload also has a `formKey`
   (form token) which the library deliberately drops
+- `GET /<USERID>/news` - Bulletin board, **HTML only** (parsed). Current bulletins under date
+  headings (`19.10.`, no year), plus link-only panels for pinned and older bulletins; the
+  older panel is rendered twice (`hidden-sm-down` / `hidden-md-up`), which tells it apart from
+  the pinned one regardless of language. `news/index_json` is 403 for guardians.
+- `GET /<USERID>/news/<ID>` - Single bulletin, HTML: `#news-content` body, published date
+  (year omitted for recent ones), author and audience
 - `GET /<USERID>/overview` - JSON with this week's schedule, exams and groups (not used yet)
+
+Every user-scoped data method takes `user_id`; a guardian account has one user ID per child
+(`get_students()`), and the same session can read all of them.
 
 List entries carry `Status: 1` when unread; read messages omit `Status`.
 
@@ -121,6 +133,7 @@ new marks. Don't change the key format without considering that stored keys woul
 - `AttendanceRange` - Predefined attendance view ranges
 - `WeekSchedule` / `Lesson` / `ScheduleGroup` / `Term` - Schedule of a week
 - `Role` - A role of the logged-in account
+- `Bulletin` / `BulletinSection` - A bulletin and where it is listed
 
 ## Common Issues and Solutions
 

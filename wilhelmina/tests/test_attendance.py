@@ -191,7 +191,7 @@ async def test_get_attendance_params(authenticated_client: WilmaClient, kwargs, 
 
     report = await client.get_attendance(**kwargs)
 
-    client._get_text.assert_awaited_once_with("attendance/view", params=params)
+    client._get_text.assert_awaited_once_with("attendance/view", params=params, user_id=None)
     assert len(report.marks) == 6
 
 

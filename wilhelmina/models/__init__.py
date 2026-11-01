@@ -7,6 +7,7 @@ from wilhelmina.models.attendance import (
     MarkType,
 )
 from wilhelmina.models.messages import Message, MessageFolder, MessagesList, Reply, Sender
+from wilhelmina.models.news import Bulletin, BulletinSection
 from wilhelmina.models.schedule import (
     Lesson,
     Role,
@@ -28,6 +29,8 @@ __all__ = [
     "MessagesList",
     "Reply",
     "Sender",
+    "Bulletin",
+    "BulletinSection",
     "Lesson",
     "Role",
     "School",

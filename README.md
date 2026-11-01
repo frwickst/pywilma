@@ -22,6 +22,10 @@ The client is **read-only**: logging in is the only non-GET request it makes.
   - [X] Lessons of any Monday-to-Sunday week (holidays and days off included), with
         subject, teachers, rooms and times
   - [X] School terms
+- [X] Bulletins (the school's bulletin board): current, pinned and older bulletins, and
+      single bulletins with their content
+- [X] Multiple students: `get_students()` lists the account's children; every data method
+      takes a `user_id` to read that student's data
 - [X] Roles of the account (e.g. one guardian role per child)
 
 ### Things to know about Wilma
@@ -111,6 +115,17 @@ async def main():
         for lesson in week.lessons_on(client.today()):
             print(lesson.start, lesson.end, lesson.subject, lesson.teachers, lesson.rooms)
         next_week = await client.get_schedule(week.week_start + datetime.timedelta(days=7))
+
+        # Bulletins: current ones first (newest first), then pinned and older ones
+        bulletins = await client.get_bulletins()
+        if bulletins:
+            full = await client.get_bulletin(bulletins[0].id)
+            print(full.title, full.date, full.content_markdown)
+
+        # Several children on one account: pass a student's user_id to any data method
+        for student in await client.get_students():
+            unread = await client.get_messages(only_unread=True, user_id=student.user_id)
+            print(student.name, len(unread))
 
         # List first, then fetch content only for the messages you need (marks them read)
         messages = await client.get_messages()

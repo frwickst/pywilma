@@ -676,6 +676,41 @@ async def test_get_json_site_root() -> None:
 
 
 @pytest.mark.asyncio
+async def test_get_json_for_other_user() -> None:
+    client, session = _client_with_session(_response_cm(json_data={}))
+
+    await client._get_json("messages/list", user_id="!67890")
+
+    assert session.get.call_args.args[0] == "https://test.inschool.fi/!67890/messages/list"
+
+
+@pytest.mark.asyncio
+async def test_relogin_keeps_requested_user() -> None:
+    client, session = _client_with_session(
+        _response_cm(status=302, location="/login?invalidsession"), _response_cm(json_data={})
+    )
+    client.login = AsyncMock()
+
+    await client._get_json("messages/list", user_id="!67890")
+
+    assert session.get.call_args.args[0] == "https://test.inschool.fi/!67890/messages/list"
+
+
+@pytest.mark.asyncio
+async def test_data_methods_pass_user_id(authenticated_client, message_content_data) -> None:
+    client = authenticated_client
+    client._get_json = AsyncMock(return_value=message_content_data)
+    client._get_text = AsyncMock(return_value="<html></html>")
+
+    await client.get_messages(user_id="!67890")
+    await client.get_message_content(1, user_id="!67890")
+    await client.get_attendance(user_id="!67890")
+
+    for call in [*client._get_json.await_args_list, *client._get_text.await_args_list]:
+        assert call.kwargs["user_id"] == "!67890"
+
+
+@pytest.mark.asyncio
 async def test_get_text() -> None:
     client, _ = _client_with_session(_response_cm(text="<html></html>"))
 
@@ -799,7 +834,7 @@ async def test_get_messages(authenticated_client, messages_data) -> None:
 
     messages = await client.get_messages()
 
-    client._get_json.assert_awaited_once_with("messages/list")
+    client._get_json.assert_awaited_once_with("messages/list", user_id=None)
     assert len(messages) == 3
     assert isinstance(messages[0], Message)
     assert messages[0].id == 1
@@ -828,7 +863,7 @@ async def test_get_messages_folder_paths(authenticated_client, folder, path) -> 
     client._get_json = AsyncMock(return_value={"Messages": []})
 
     assert await client.get_messages(folder=folder) == []
-    client._get_json.assert_awaited_once_with(path)
+    client._get_json.assert_awaited_once_with(path, user_id=None)
 
 
 @pytest.mark.asyncio
@@ -869,7 +904,7 @@ async def test_get_messages_with_content(
     client = authenticated_client
     client._get_json = AsyncMock(return_value=messages_data)
 
-    def full(message_id: int) -> Message:
+    def full(message_id: int, user_id: str | None = None) -> Message:
         data = dict(message_content_data["messages"][0])
         data["Id"] = message_id
         data["ContentHtml"] = f"<p>Content {message_id}</p>"
@@ -913,7 +948,7 @@ async def test_get_message_content(authenticated_client, message_content_data) -
 
     message = await client.get_message_content(1)
 
-    client._get_json.assert_awaited_once_with("messages/1", params={"format": "json"})
+    client._get_json.assert_awaited_once_with("messages/1", params={"format": "json"}, user_id=None)
     assert message.id == 1
     assert message.content_html == "<p>This is a test message content.</p>"
     assert message.content_markdown == "This is a test message content."
